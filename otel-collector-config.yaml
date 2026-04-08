@@ -1,0 +1,35 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318   
+      grpc:
+        endpoint: 0.0.0.0:4317  
+
+processors:
+  batch:
+
+exporters:
+  debug:
+
+  otlphttp/nlb:
+    endpoint: http://otel-gateway-nlb-3b88104205cc8ef6.elb.us-east-1.amazonaws.com:4318
+    #headers:
+    #signoz-access-token: rSIDSZ7tzIjUmGgXBnefO9Bzi-pnmA7AWrT-
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, otlphttp/nlb]
+
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, otlphttp/nlb]
+
+    metrics:   
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, otlphttp/nlb]  
