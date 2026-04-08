@@ -70,12 +70,21 @@ instrumentations: [getNodeAutoInstrumentations()],
 });
 
 // ✅ Start SDK safely
-sdk.start()
-.then(() => {
-console.log("✅ OpenTelemetry initialized");
-})
-.catch((err) => {
-console.error("❌ Error initializing OpenTelemetry", err);
+// Note: sdk.start() returns void in older versions of @opentelemetry/sdk-node,
+// so we cannot chain .then()/.catch() on it directly.
+try {
+  sdk.start();
+  console.log("✅ OpenTelemetry initialized");
+} catch (err) {
+  console.error("❌ Error initializing OpenTelemetry", err);
+}
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  sdk.shutdown()
+    .then(() => console.log('🔴 OpenTelemetry shut down'))
+    .catch((err) => console.error('❌ Error shutting down OpenTelemetry', err))
+    .finally(() => process.exit(0));
 });
 
 // ---------------- START APP ----------------
