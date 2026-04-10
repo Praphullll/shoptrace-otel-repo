@@ -8,6 +8,9 @@ diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
 const { NodeSDK } = require('@opentelemetry/sdk-node');
 const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
 
+const cors = require('cors');
+app.use(cors({ origin: '*', exposedHeaders: ['traceparent'] }));
+
 const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
 const { OTLPMetricExporter } = require('@opentelemetry/exporter-metrics-otlp-http');
 const { OTLPLogExporter } = require('@opentelemetry/exporter-logs-otlp-http');
@@ -24,36 +27,36 @@ console.log("📡 OTEL endpoint:", endpoint);
 
 // ✅ Optional headers (ONLY for SigNoz cloud, ignored otherwise)
 const headers = process.env.SIGNOZ_INGESTION_KEY
-? { 'signoz-access-token': process.env.SIGNOZ_INGESTION_KEY }
-: undefined;
+  ? { 'signoz-access-token': process.env.SIGNOZ_INGESTION_KEY }
+  : undefined;
 
 // ---------------- TRACE ----------------
 const traceExporter = new OTLPTraceExporter({
-url: `${endpoint}/v1/traces`,
-headers,
+  url: `${endpoint}/v1/traces`,
+  headers,
 });
 
 // ---------------- METRICS ----------------
 const metricExporter = new OTLPMetricExporter({
-url: `${endpoint}/v1/metrics`,
-headers,
+  url: `${endpoint}/v1/metrics`,
+  headers,
 });
 
 const metricReader = new PeriodicExportingMetricReader({
-exporter: metricExporter,
-exportIntervalMillis: 10000, // ⏱️ export every 10 seconds
+  exporter: metricExporter,
+  exportIntervalMillis: 10000, // ⏱️ export every 10 seconds
 });
 
 // ---------------- LOGS ----------------
 const logExporter = new OTLPLogExporter({
-url: `${endpoint}/v1/logs`,
-headers,
+  url: `${endpoint}/v1/logs`,
+  headers,
 });
 
 const loggerProvider = new LoggerProvider();
 
 loggerProvider.addLogRecordProcessor(
-new BatchLogRecordProcessor(logExporter)
+  new BatchLogRecordProcessor(logExporter)
 );
 
 logs.setGlobalLoggerProvider(loggerProvider);
@@ -64,9 +67,9 @@ global.otelLogger = logger;
 
 // ---------------- SDK ----------------
 const sdk = new NodeSDK({
-traceExporter,
-metricReader,
-instrumentations: [getNodeAutoInstrumentations()],
+  traceExporter,
+  metricReader,
+  instrumentations: [getNodeAutoInstrumentations()],
 });
 
 // ✅ Start SDK safely

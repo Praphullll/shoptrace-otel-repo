@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShopTrace — E-Commerce Monitor</title>
+  <script src="https://unpkg.com/@opentelemetry/api@1.9.0/build/esm/index.js" type="module" crossorigin></script>
+  <style>
+    :root {
+      --bg: #0a0b0e;
+      --surface: #13151a;
+      --surface2: #1a1d24;
+      --border: #2a2d36;
+      --border2: #363a47;
+      --text: #e8eaf0;
+      --text2: #8b8fa8;
+      --text3: #5a5e72;
+      --accent: #4f8ef7;
+      --accent2: #3d7ae8;
+      --green: #2dd98f;
+      --red: #f25c54;
+      --amber: #f5a623;
+      --purple: #9f7aea;
+      --teal: #38d9c0;
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    /* Layout */
+    .app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+    /* Header */
+    .header {
+      display: flex; align-items: center; gap: 16px;
+      padding: 12px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .logo { display: flex; align-items: center; gap: 8px; }
+    .logo-icon {
+      width: 28px; height: 28px; border-radius: 6px;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .logo-text { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; color: var(--text); }
+    .logo-sub { font-size: 11px; color: var(--text3); letter-spacing: 0.5px; }
+    .header-sep { flex: 1; }
+    .status-pill {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 20px;
+      background: var(--surface2); border: 1px solid var(--border);
+      font-size: 11px; color: var(--text2);
+    }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* Main layout */
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 220px; background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; flex-shrink: 0;
+    }
+    .sidebar-section { padding: 16px 14px 8px; font-size: 10px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 14px; cursor: pointer;
+      color: var(--text2); font-size: 12px;
+      transition: all 0.15s; border-left: 2px solid transparent;
+    }
+    .nav-item:hover { color: var(--text); background: var(--surface2); }
+    .nav-item.active { color: var(--accent); background: rgba(79,142,247,0.08); border-left-color: var(--accent); }
+    .nav-icon { width: 16px; text-align: center; }
+    .nav-badge {
+      margin-left: auto; font-size: 10px;
+      background: var(--surface2); border: 1px solid var(--border);
+      padding: 1px 6px; border-radius: 10px; color: var(--text3);
+    }
+    .nav-badge.red { background: rgba(242,92,84,0.15); border-color: rgba(242,92,84,0.3); color: var(--red); }
+
+    /* Content */
+    .content { flex: 1; overflow-y: auto; padding: 20px; background: var(--bg); }
+
+    /* Panels */
+    .panel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+
+    .metric-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 16px;
+    }
+    .metric-label { font-size: 10px; color: var(--text3); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 6px; }
+    .metric-value { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; }
+    .metric-sub { font-size: 10px; margin-top: 4px; }
+    .metric-sub.up { color: var(--green); }
+    .metric-sub.down { color: var(--red); }
+    .metric-sub.neutral { color: var(--text3); }
+
+    .section-title {
+      font-size: 11px; color: var(--text2); letter-spacing: 0.8px;
+      text-transform: uppercase; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* Table */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+      padding: 8px 12px; text-align: left;
+      font-size: 10px; color: var(--text3); letter-spacing: 0.8px; text-transform: uppercase;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 12px; vertical-align: middle; }
+    .data-table tr:hover td { background: var(--surface2); }
+    .data-table tr:last-child td { border-bottom: none; }
+
+    .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+
+    /* Badges */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-green { background: rgba(45,217,143,0.15); color: var(--green); border: 1px solid rgba(45,217,143,0.25); }
+    .badge-red { background: rgba(242,92,84,0.15); color: var(--red); border: 1px solid rgba(242,92,84,0.25); }
+    .badge-amber { background: rgba(245,166,35,0.15); color: var(--amber); border: 1px solid rgba(245,166,35,0.25); }
+    .badge-blue { background: rgba(79,142,247,0.15); color: var(--accent); border: 1px solid rgba(79,142,247,0.25); }
+    .badge-purple { background: rgba(159,122,234,0.15); color: var(--purple); border: 1px solid rgba(159,122,234,0.25); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: var(--radius);
+      font-family: inherit; font-size: 12px; cursor: pointer;
+      border: 1px solid var(--border2); background: var(--surface2);
+      color: var(--text); transition: all 0.15s;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,142,247,0.08); }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+    .btn-danger { border-color: rgba(242,92,84,0.4); color: var(--red); }
+    .btn-danger:hover { background: rgba(242,92,84,0.1); border-color: var(--red); }
+
+    /* Trace viewer */
+    .trace-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 8px; overflow: hidden;
+    }
+    .trace-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; cursor: pointer; transition: background 0.15s;
+    }
+    .trace-header:hover { background: var(--surface2); }
+    .trace-id { font-size: 11px; color: var(--accent); font-family: monospace; }
+    .trace-name { flex: 1; font-size: 12px; color: var(--text); }
+    .trace-duration { font-size: 11px; color: var(--text3); }
+    .trace-expand { color: var(--text3); font-size: 10px; transition: transform 0.2s; }
+    .trace-expand.open { transform: rotate(90deg); }
+
+    .span-tree { padding: 0 14px 14px; }
+    .span-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 6px 10px; border-radius: 6px; margin-bottom: 2px;
+      background: var(--surface2); border: 1px solid var(--border);
+    }
+    .span-indent { width: 16px; flex-shrink: 0; }
+    .span-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .span-dot.ok { background: var(--green); }
+    .span-dot.err { background: var(--red); }
+    .span-dot.slow { background: var(--amber); }
+    .span-info { flex: 1; }
+    .span-name { font-size: 11px; color: var(--text); font-weight: 600; }
+    .span-meta { font-size: 10px; color: var(--text3); margin-top: 2px; }
+    .span-dur { font-size: 10px; color: var(--text2); white-space: nowrap; }
+
+    .span-log { 
+      font-size: 10px; color: var(--teal); 
+      font-family: monospace; margin-top: 4px; 
+      padding: 4px 8px; background: rgba(56,217,192,0.06); 
+      border-radius: 4px; border-left: 2px solid var(--teal);
+    }
+
+    /* Shop UI */
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .product-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 16px; cursor: pointer;
+      transition: all 0.2s; position: relative;
+    }
+    .product-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(79,142,247,0.15); }
+    .product-card.selected { border-color: var(--accent); background: rgba(79,142,247,0.06); }
+    .product-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .product-price { font-size: 16px; color: var(--green); font-weight: 700; }
+    .product-stock { font-size: 10px; color: var(--text3); margin-top: 4px; }
+    .selected-check {
+      position: absolute; top: 10px; right: 10px;
+      width: 18px; height: 18px; border-radius: 50%; background: var(--accent);
+      display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff;
+    }
+
+    /* Order form */
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: 10px; color: var(--text3); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 6px; }
+    .form-input {
+      width: 100%; padding: 8px 12px;
+      background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: var(--radius); color: var(--text); font-family: inherit; font-size: 12px;
+      transition: border-color 0.15s;
+    }
+    .form-input:focus { outline: none; border-color: var(--accent); }
+    .form-input::placeholder { color: var(--text3); }
+
+    /* Logs panel */
+    .log-console {
+      background: #080a0d; border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 12px 14px;
+      font-family: monospace; font-size: 11px; max-height: 400px;
+      overflow-y: auto; line-height: 1.8;
+    }
+    .log-line { display: flex; gap: 10px; }
+    .log-time { color: var(--text3); flex-shrink: 0; width: 80px; }
+    .log-level { flex-shrink: 0; width: 50px; font-weight: 700; }
+    .log-level.INFO { color: var(--accent); }
+    .log-level.WARN { color: var(--amber); }
+    .log-level.ERROR { color: var(--red); }
+    .log-level.DEBUG { color: var(--purple); }
+    .log-msg { color: var(--text2); }
+    .log-trace { color: var(--teal); font-size: 10px; }
+
+    /* Right panel */
+    .right-panel {
+      width: 320px; background: var(--surface); border-left: 1px solid var(--border);
+      display: flex; flex-direction: column; flex-shrink: 0;
+    }
+    .rp-header {
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+      font-size: 11px; color: var(--text2); letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .rp-body { flex: 1; overflow-y: auto; padding: 14px 16px; }
+
+    .live-trace {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px; margin-bottom: 8px;
+      border-left: 3px solid var(--accent);
+    }
+    .live-trace.error { border-left-color: var(--red); }
+    .live-trace.slow { border-left-color: var(--amber); }
+    .lt-name { font-size: 11px; color: var(--text); font-weight: 600; }
+    .lt-id { font-size: 10px; color: var(--accent); margin-top: 2px; }
+    .lt-time { font-size: 10px; color: var(--text3); float: right; }
+    .lt-spans { font-size: 10px; color: var(--text3); margin-top: 4px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); }
+    .tab {
+      padding: 10px 16px; font-size: 12px; cursor: pointer;
+      color: var(--text3); border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .tab:hover { color: var(--text2); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* Toast */
+    .toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; }
+    .toast {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; border-radius: var(--radius);
+      background: var(--surface); border: 1px solid var(--border);
+      font-size: 12px; color: var(--text);
+      animation: slideIn 0.2s ease; max-width: 320px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    .toast.success { border-color: rgba(45,217,143,0.4); }
+    .toast.error { border-color: rgba(242,92,84,0.4); }
+    @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* Spinner */
+    .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Waterfall bar */
+    .waterfall-bar { height: 8px; border-radius: 4px; background: var(--accent); opacity: 0.7; }
+    .waterfall-wrap { flex: 1; display: flex; align-items: center; gap: 4px; }
+
+    /* Config banner */
+    .config-banner {
+      background: rgba(245,166,35,0.1); border: 1px solid rgba(245,166,35,0.3);
+      border-radius: var(--radius); padding: 10px 14px;
+      margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-start;
+    }
+    .config-banner-icon { color: var(--amber); flex-shrink: 0; margin-top: 1px; }
+
+    .empty-state { text-align: center; padding: 40px; color: var(--text3); }
+    .empty-state .es-icon { font-size: 32px; margin-bottom: 12px; }
+    .empty-state p { font-size: 12px; line-height: 1.8; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<div id="root">
+  <div class="app">
+    <header class="header">
+      <div class="logo">
+        <div class="logo-icon">🛒</div>
+        <div>
+          <div class="logo-text">ShopTrace</div>
+          <div class="logo-sub">OTel E-Commerce Monitor</div>
+        </div>
+      </div>
+      <div class="header-sep"></div>
+      <div class="status-pill" id="otelStatus">
+        <div class="status-dot" id="otelDot"></div>
+        <span id="otelStatusText">Connecting to OTel Gateway...</span>
+      </div>
+      <div class="status-pill" style="margin-left:8px" id="apiStatus">
+        <div class="status-dot" id="apiDot" style="background:var(--text3)"></div>
+        <span id="apiStatusText">Backend: checking</span>
+      </div>
+    </header>
+
+    <div class="main">
+      <!-- Sidebar -->
+      <nav class="sidebar">
+        <div class="sidebar-section">Monitor</div>
+        <div class="nav-item active" data-tab="shop" onclick="switchTab('shop')">
+          <span class="nav-icon">🏪</span> Storefront
+        </div>
+        <div class="nav-item" data-tab="traces" onclick="switchTab('traces')">
+          <span class="nav-icon">🔗</span> Traces
+          <span class="nav-badge" id="traceCountBadge">0</span>
+        </div>
+        <div class="nav-item" data-tab="logs" onclick="switchTab('logs')">
+          <span class="nav-icon">📋</span> Live Logs
+          <span class="nav-badge red" id="errorBadge" style="display:none">0</span>
+        </div>
+        <div class="nav-item" data-tab="simulate" onclick="switchTab('simulate')">
+          <span class="nav-icon">⚡</span> Simulate
+        </div>
+        <div class="sidebar-section">Config</div>
+        <div class="nav-item" data-tab="config" onclick="switchTab('config')">
+          <span class="nav-icon">⚙️</span> Settings
+        </div>
+      </nav>
+
+      <!-- Main content -->
+      <div class="content" id="mainContent">
+        <!-- Content is rendered by JS -->
+      </div>
+
+      <!-- Right panel: Live trace feed -->
+      <div class="right-panel">
+        <div class="rp-header">Live Trace Stream</div>
+        <div class="rp-body" id="liveTraceFeed">
+          <div class="empty-state">
+            <div class="es-icon">📡</div>
+            <p>Waiting for activity...<br>Open the Storefront and place orders to generate traces.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toastContainer"></div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const CONFIG = {
+  otelEndpoint: 'http://otel-gateway-nlb-3b88104205cc8ef6.elb.us-east-1.amazonaws.com:4318',
+  backendUrl: '',  // Will be set via settings; defaults to relative
+  serviceName: 'shoptrace-frontend',
+  serviceVersion: '1.0.0',
+};
+
+// ============================================================
+// OTEL TRACER (browser-native, no SDK bundle needed)
+// We implement a lightweight OTel-compatible tracer that sends
+// OTLP/HTTP JSON to your gateway endpoint.
+// ============================================================
+
+function generateId(bytes) {
+  const arr = new Uint8Array(bytes);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+class OtelTracer {
+  constructor() {
+    this.spans = [];
+    this.connected = false;
+    this.flushInterval = null;
+    this.init();
+  }
+
+  init() {
+    // Send buffered spans every 5 seconds
+    this.flushInterval = setInterval(() => this.flush(), 5000);
+    // Immediately test connection
+    setTimeout(() => this.testConnection(), 500);
+  }
+
+  async testConnection() {
+    try {
+      const res = await fetch(`${CONFIG.otelEndpoint}/v1/traces`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resourceSpans: [] }),
+        signal: AbortSignal.timeout(4000),
+      });
+      this.connected = res.ok || res.status === 400; // 400 = reached but empty payload
+      updateOtelStatus(this.connected, res.status);
+    } catch (e) {
+      this.connected = false;
+      updateOtelStatus(false, e.message);
+    }
+  }
+
+  startSpan(name, parentCtx = null) {
+    const traceId = parentCtx ? parentCtx.traceId : generateId(16);
+    const spanId = generateId(8);
+    const span = {
+      traceId,
+      spanId,
+      parentSpanId: parentCtx ? parentCtx.spanId : null,
+      name,
+      startTimeUnixNano: BigInt(Date.now()) * 1000000n,
+      endTimeUnixNano: null,
+      status: { code: 0 }, // UNSET
+      attributes: {},
+      events: [],
+      kind: 1, // INTERNAL
+    };
+    return span;
+  }
+
+  endSpan(span, status = 'ok', attrs = {}) {
+    span.endTimeUnixNano = BigInt(Date.now()) * 1000000n;
+    span.attributes = { ...span.attributes, ...attrs };
+    if (status === 'error') span.status = { code: 2, message: attrs['error.message'] || 'error' };
+    if (status === 'ok') span.status = { code: 1 };
+    this.spans.push(span);
+    // Push to live feed
+    emitLiveTrace(span);
+    // Immediate flush for important spans
+    if (this.spans.length >= 10) this.flush();
+  }
+
+  addEvent(span, name, attrs = {}) {
+    span.events.push({
+      name,
+      timeUnixNano: BigInt(Date.now()) * 1000000n,
+      attributes: attrs,
+    });
+  }
+
+  async flush() {
+    if (!this.spans.length) return;
+    const toSend = this.spans.splice(0);
+    const payload = this.buildPayload(toSend);
+    try {
+      await fetch(`${CONFIG.otelEndpoint}/v1/traces`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      this.connected = true;
+      addLog('DEBUG', `Flushed ${toSend.length} spans to OTel gateway`, null);
+      updateOtelStatus(true);
+    } catch (e) {
+      this.connected = false;
+      updateOtelStatus(false, e.message);
+      addLog('WARN', `OTel flush failed: ${e.message}`, null);
+    }
+  }
+
+  buildPayload(spans) {
+    const grouped = {};
+    for (const s of spans) {
+      if (!grouped[s.traceId]) grouped[s.traceId] = [];
+      grouped[s.traceId].push(s);
+    }
+
+    return {
+      resourceSpans: [{
+        resource: {
+          attributes: [
+            { key: 'service.name', value: { stringValue: CONFIG.serviceName } },
+            { key: 'service.version', value: { stringValue: CONFIG.serviceVersion } },
+            { key: 'deployment.environment', value: { stringValue: 'production' } },
+            { key: 'telemetry.sdk.language', value: { stringValue: 'javascript' } },
+            { key: 'telemetry.sdk.name', value: { stringValue: 'shoptrace-frontend-otel' } },
+          ]
+        },
+        scopeSpans: [{
+          scope: { name: 'shoptrace-frontend', version: '1.0.0' },
+          spans: spans.map(s => ({
+            traceId: s.traceId,
+            spanId: s.spanId,
+            parentSpanId: s.parentSpanId || undefined,
+            name: s.name,
+            kind: s.kind,
+            startTimeUnixNano: s.startTimeUnixNano.toString(),
+            endTimeUnixNano: (s.endTimeUnixNano || BigInt(Date.now()) * 1000000n).toString(),
+            status: s.status,
+            attributes: Object.entries(s.attributes).map(([k, v]) => ({
+              key: k,
+              value: typeof v === 'number' ? { intValue: v } : { stringValue: String(v) }
+            })),
+            events: s.events.map(e => ({
+              name: e.name,
+              timeUnixNano: e.timeUnixNano.toString(),
+              attributes: Object.entries(e.attributes).map(([k, v]) => ({
+                key: k, value: { stringValue: String(v) }
+              })),
+            })),
+          }))
+        }]
+      }]
+    };
+  }
+}
+
+// ============================================================
+// OTel LOGS (OTLP/HTTP JSON)
+// ============================================================
+class OtelLogger {
+  constructor() { this.buffer = []; setInterval(() => this.flush(), 5000); }
+
+  emit(level, message, traceId, spanId, attrs = {}) {
+    this.buffer.push({
+      timeUnixNano: BigInt(Date.now()) * 1000000n,
+      severityNumber: { DEBUG:5, INFO:9, WARN:13, ERROR:17 }[level] || 9,
+      severityText: level,
+      body: { stringValue: message },
+      traceId: traceId || undefined,
+      spanId: spanId || undefined,
+      attributes: [
+        { key: 'service.name', value: { stringValue: CONFIG.serviceName } },
+        ...Object.entries(attrs).map(([k,v]) => ({ key: k, value: { stringValue: String(v) } })),
+      ],
+    });
+  }
+
+  async flush() {
+    if (!this.buffer.length) return;
+    const toSend = this.buffer.splice(0);
+    try {
+      await fetch(`${CONFIG.otelEndpoint}/v1/logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resourceLogs: [{
+            resource: { attributes: [{ key: 'service.name', value: { stringValue: CONFIG.serviceName } }] },
+            scopeLogs: [{ scope: { name: CONFIG.serviceName }, logRecords: toSend.map(l => ({
+              ...l,
+              timeUnixNano: l.timeUnixNano.toString(),
+            })) }]
+          }]
+        }),
+      });
+    } catch (e) { /* silent */ }
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+const tracer = new OtelTracer();
+const otelLogger = new OtelLogger();
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  activeTab: 'shop',
+  products: [],
+  orders: [],
+  selectedProduct: null,
+  logs: [],
+  traces: [],
+  errorCount: 0,
+  metrics: { orders: 0, errors: 0, avgDuration: 0, durations: [] },
+  backendUrl: localStorage.getItem('backendUrl') || 'http://localhost:3000',
+};
+
+// ============================================================
+// UI HELPERS
+// ============================================================
+function updateOtelStatus(ok, msg) {
+  const dot = document.getElementById('otelDot');
+  const text = document.getElementById('otelStatusText');
+  if (!dot || !text) return;
+  dot.style.background = ok ? 'var(--green)' : 'var(--red)';
+  text.textContent = ok ? 'OTel Gateway: Connected' : `OTel: ${msg || 'Disconnected'}`;
+}
+
+function updateApiStatus(ok, msg) {
+  const dot = document.getElementById('apiDot');
+  const text = document.getElementById('apiStatusText');
+  if (!dot || !text) return;
+  dot.style.background = ok ? 'var(--green)' : 'var(--red)';
+  text.textContent = ok ? 'Backend: Online' : `Backend: ${msg || 'Offline'}`;
+}
+
+function showToast(type, msg) {
+  const c = document.getElementById('toastContainer');
+  if (!c) return;
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span>${type === 'success' ? '✓' : '✗'}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function addLog(level, message, traceId, spanId) {
+  const now = new Date();
+  const time = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3,'0');
+  state.logs.unshift({ level, message, time, traceId, spanId });
+  if (state.logs.length > 200) state.logs.pop();
+  if (level === 'ERROR') {
+    state.errorCount++;
+    const badge = document.getElementById('errorBadge');
+    if (badge) { badge.style.display = ''; badge.textContent = state.errorCount; }
+  }
+  // Also ship to OTel
+  otelLogger.emit(level, message, traceId, spanId);
+  if (state.activeTab === 'logs') renderLogs();
+}
+
+function emitLiveTrace(span) {
+  const dur = span.endTimeUnixNano
+    ? Number((span.endTimeUnixNano - span.startTimeUnixNano) / 1000000n)
+    : 0;
+  const entry = { ...span, durationMs: dur, receivedAt: new Date() };
+  state.traces.unshift(entry);
+  if (state.traces.length > 500) state.traces.pop();
+
+  const countBadge = document.getElementById('traceCountBadge');
+  if (countBadge) countBadge.textContent = state.traces.length;
+
+  // Update live feed panel
+  const feed = document.getElementById('liveTraceFeed');
+  if (!feed) return;
+  // Remove empty state
+  const empty = feed.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  const cls = span.status?.code === 2 ? 'error' : dur > 2000 ? 'slow' : '';
+  const div = document.createElement('div');
+  div.className = `live-trace ${cls}`;
+  div.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div class="lt-name">${escHtml(span.name)}</div>
+      <div class="lt-time">${entry.receivedAt.toTimeString().split(' ')[0]}</div>
+    </div>
+    <div class="lt-id">trace: ${span.traceId.slice(0,16)}...</div>
+    <div class="lt-spans">span: ${span.spanId} · ${dur}ms · ${span.status?.code === 2 ? '❌ error' : '✓ ok'}</div>
+  `;
+  feed.insertBefore(div, feed.firstChild);
+  // Keep max 20 in feed
+  while (feed.children.length > 20) feed.removeChild(feed.lastChild);
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ============================================================
+// API CALLS (instrumented)
+// ============================================================
+async function apiCall(method, path, body, parentSpan) {
+  const url = state.backendUrl + path;
+  const span = tracer.startSpan(`HTTP ${method} ${path}`, parentSpan ? { traceId: parentSpan.traceId, spanId: parentSpan.spanId } : null);
+  span.kind = 3; // CLIENT
+  span.attributes = {
+    'http.method': method,
+    'http.url': url,
+    'http.target': path,
+    'net.peer.name': new URL(url).hostname,
+    'span.type': 'http',
+  };
+
+  tracer.addEvent(span, 'request.start', { url, method });
+  addLog('INFO', `${method} ${path}`, span.traceId, span.spanId);
+
+  try {
+    const opts = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'traceparent': `00-${span.traceId}-${span.spanId}-01`,
+        'tracestate': `service=${CONFIG.serviceName}`,
+      },
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    const data = await res.json();
+
+    span.attributes['http.status_code'] = res.status;
+    span.attributes['http.response_content_length'] = JSON.stringify(data).length;
+    tracer.addEvent(span, 'response.received', { status: String(res.status) });
+
+    if (!res.ok) {
+      addLog('ERROR', `${method} ${path} → ${res.status}: ${data.error || data.message || 'error'}`, span.traceId, span.spanId);
+      tracer.endSpan(span, 'error', { 'error.message': String(data.error || res.status), 'http.status_code': res.status });
+      return { ok: false, data, status: res.status, traceId: span.traceId };
+    }
+
+    addLog('INFO', `${method} ${path} → ${res.status} (${JSON.stringify(data).length}B)`, span.traceId, span.spanId);
+    tracer.endSpan(span, 'ok', { 'http.status_code': res.status });
+    return { ok: true, data, status: res.status, traceId: span.traceId };
+  } catch (e) {
+    addLog('ERROR', `${method} ${path} → NETWORK ERROR: ${e.message}`, span.traceId, span.spanId);
+    tracer.endSpan(span, 'error', { 'error.message': e.message, 'error.type': e.name });
+    return { ok: false, data: null, error: e.message, traceId: span.traceId };
+  }
+}
+
+// ============================================================
+// BACKEND HEALTH CHECK
+// ============================================================
+async function checkHealth() {
+  const result = await apiCall('GET', '/health');
+  updateApiStatus(result.ok, result.ok ? null : result.error);
+  return result.ok;
+}
+
+// ============================================================
+// LOAD PRODUCTS
+// ============================================================
+async function loadProducts() {
+  const rootSpan = tracer.startSpan('page.load products');
+  rootSpan.attributes = { 'user.action': 'browse_products', 'page': 'storefront' };
+
+  addLog('INFO', 'Loading product catalog...', rootSpan.traceId, rootSpan.spanId);
+  const result = await apiCall('GET', '/products', null, rootSpan);
+
+  if (result.ok && Array.isArray(result.data)) {
+    state.products = result.data;
+    tracer.addEvent(rootSpan, 'products.loaded', { count: String(result.data.length) });
+    addLog('INFO', `Catalog loaded: ${result.data.length} products`, rootSpan.traceId, rootSpan.spanId);
+    tracer.endSpan(rootSpan, 'ok', { 'products.count': result.data.length });
+  } else {
+    tracer.endSpan(rootSpan, 'error', { 'error.message': result.error || 'failed to load products' });
+    showToast('error', 'Failed to load products — check backend URL in Settings');
+  }
+
+  if (state.activeTab === 'shop') renderShop();
+}
+
+// ============================================================
+// PLACE ORDER
+// ============================================================
+async function placeOrder(customerEmail, productId, quantity) {
+  const rootSpan = tracer.startSpan('user.checkout');
+  rootSpan.attributes = {
+    'user.action': 'place_order',
+    'user.email': customerEmail,
+    'order.product_id': String(productId),
+    'order.quantity': quantity,
+  };
+  addLog('INFO', `Checkout initiated for product ${productId}`, rootSpan.traceId, rootSpan.spanId);
+
+  // Validation span
+  const validationSpan = tracer.startSpan('order.validate', { traceId: rootSpan.traceId, spanId: rootSpan.spanId });
+  validationSpan.attributes = { 'validation.email': customerEmail, 'validation.qty': quantity };
+  await new Promise(r => setTimeout(r, 30)); // simulate validation
+  const validationOk = customerEmail.includes('@') && quantity > 0;
+  if (!validationOk) {
+    tracer.endSpan(validationSpan, 'error', { 'error.message': 'invalid input' });
+    tracer.endSpan(rootSpan, 'error', { 'error.message': 'validation failed' });
+    addLog('ERROR', 'Order validation failed: invalid email or quantity', rootSpan.traceId);
+    showToast('error', 'Invalid email or quantity');
+    return null;
+  }
+  tracer.endSpan(validationSpan, 'ok');
+  addLog('DEBUG', 'Order validation passed', rootSpan.traceId, validationSpan.spanId);
+
+  // API call span
+  const result = await apiCall('POST', '/orders', { customer_email: customerEmail, product_id: productId, quantity }, rootSpan);
+
+  if (result.ok) {
+    state.metrics.orders++;
+    const duration = Number(BigInt(Date.now()) * 1000000n - rootSpan.startTimeUnixNano) / 1000000;
+    state.metrics.durations.push(duration);
+    state.metrics.avgDuration = Math.round(state.metrics.durations.reduce((a,b)=>a+b,0) / state.metrics.durations.length);
+
+    tracer.addEvent(rootSpan, 'order.confirmed', { order_id: String(result.data?.order_id || result.data?.id || 'unknown') });
+    tracer.endSpan(rootSpan, 'ok', { 'order.id': String(result.data?.order_id || ''), 'order.status': 'confirmed' });
+    addLog('INFO', `Order placed successfully: #${result.data?.order_id || result.data?.id}`, rootSpan.traceId, rootSpan.spanId);
+    showToast('success', `Order confirmed! Trace ID: ${result.traceId.slice(0,12)}...`);
+    return result.data;
+  } else {
+    state.metrics.errors++;
+    tracer.endSpan(rootSpan, 'error', { 'error.message': result.error || 'order failed' });
+    showToast('error', `Order failed: ${result.error || 'unknown error'}`);
+    return null;
+  }
+}
+
+// ============================================================
+// SIMULATE SCENARIOS
+// ============================================================
+async function simulateError() {
+  const span = tracer.startSpan('simulate.error');
+  span.attributes = { 'simulation.type': 'error', 'user.action': 'test_error' };
+  addLog('WARN', 'Triggering simulated error scenario...', span.traceId, span.spanId);
+  const result = await apiCall('GET', '/simulate/error', null, span);
+  tracer.endSpan(span, 'error', { 'error.simulated': 'true' });
+  addLog('ERROR', `Simulated error received from backend`, span.traceId, span.spanId);
+}
+
+async function simulateSlow(ms = 3000) {
+  const span = tracer.startSpan('simulate.slow_request');
+  span.attributes = { 'simulation.type': 'slow', 'simulation.delay_ms': ms };
+  addLog('WARN', `Triggering slow request simulation (${ms}ms)...`, span.traceId, span.spanId);
+  const result = await apiCall('GET', `/simulate/slow?ms=${ms}`, null, span);
+  tracer.endSpan(span, result.ok ? 'ok' : 'error', { 'delay.ms': ms });
+  addLog('INFO', `Slow request completed after ${ms}ms`, span.traceId, span.spanId);
+}
+
+async function simulateUserJourney() {
+  const journeySpan = tracer.startSpan('user.full_journey');
+  journeySpan.attributes = { 'journey.type': 'happy_path', 'user.session': generateId(8) };
+  addLog('INFO', 'Starting full user journey simulation...', journeySpan.traceId, journeySpan.spanId);
+
+  // Step 1: Browse
+  const browseSpan = tracer.startSpan('journey.browse', { traceId: journeySpan.traceId, spanId: journeySpan.spanId });
+  addLog('INFO', '[Journey] Step 1: User browsing products', journeySpan.traceId, browseSpan.spanId);
+  await apiCall('GET', '/products', null, browseSpan);
+  tracer.endSpan(browseSpan, 'ok', { 'journey.step': '1_browse' });
+  await new Promise(r => setTimeout(r, 500));
+
+  // Step 2: Health check (page load)
+  const healthSpan = tracer.startSpan('journey.health_check', { traceId: journeySpan.traceId, spanId: journeySpan.spanId });
+  addLog('INFO', '[Journey] Step 2: Health check', journeySpan.traceId, healthSpan.spanId);
+  await apiCall('GET', '/health', null, healthSpan);
+  tracer.endSpan(healthSpan, 'ok', { 'journey.step': '2_health' });
+  await new Promise(r => setTimeout(r, 300));
+
+  // Step 3: Place order
+  if (state.products.length > 0) {
+    const orderSpan = tracer.startSpan('journey.place_order', { traceId: journeySpan.traceId, spanId: journeySpan.spanId });
+    addLog('INFO', '[Journey] Step 3: Placing order', journeySpan.traceId, orderSpan.spanId);
+    await apiCall('POST', '/orders', {
+      customer_email: `journey-test-${generateId(4)}@example.com`,
+      product_id: state.products[0].id,
+      quantity: 1,
+    }, orderSpan);
+    tracer.endSpan(orderSpan, 'ok', { 'journey.step': '3_order' });
+  }
+
+  tracer.endSpan(journeySpan, 'ok', { 'journey.steps_completed': '3' });
+  addLog('INFO', 'Full user journey simulation complete', journeySpan.traceId, journeySpan.spanId);
+  showToast('success', 'User journey simulation complete — check Traces view');
+}
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === tab);
+  });
+  if (tab === 'logs') state.errorCount = 0;
+  render();
+}
+
+function render() {
+  const views = { shop: renderShop, traces: renderTraces, logs: renderLogs, simulate: renderSimulate, config: renderConfig };
+  (views[state.activeTab] || renderShop)();
+}
+
+// ============================================================
+// RENDER: SHOP
+// ============================================================
+function renderShop() {
+  const c = document.getElementById('mainContent');
+  if (!c) return;
+
+  const m = state.metrics;
+  c.innerHTML = `
+    <div class="panel-grid">
+      <div class="metric-card">
+        <div class="metric-label">Products</div>
+        <div class="metric-value">${state.products.length}</div>
+        <div class="metric-sub neutral">in catalog</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Orders Placed</div>
+        <div class="metric-value">${m.orders}</div>
+        <div class="metric-sub up">this session</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Errors</div>
+        <div class="metric-value" style="color:${m.errors ? 'var(--red)':'var(--text)'}">${m.errors}</div>
+        <div class="metric-sub ${m.errors ? 'down':'neutral'}">this session</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Avg Checkout</div>
+        <div class="metric-value">${m.avgDuration || '—'}${m.avgDuration ? 'ms' : ''}</div>
+        <div class="metric-sub neutral">end-to-end</div>
+      </div>
+    </div>
+
+    <div class="section-title">Product Catalog</div>
+    ${state.products.length === 0 ? `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <button class="btn btn-primary" onclick="loadProducts()">Load Products from Backend</button>
+        <span style="font-size:11px;color:var(--text3)">Backend: ${escHtml(state.backendUrl)}</span>
+      </div>
+      <div class="empty-state"><div class="es-icon">📦</div><p>No products loaded yet.<br>Click above or configure your backend URL in Settings.</p></div>
+    ` : `
+      <div class="product-grid" id="productGrid">
+        ${state.products.map(p => `
+          <div class="product-card ${state.selectedProduct?.id === p.id ? 'selected' : ''}" onclick="selectProduct(${p.id})">
+            ${state.selectedProduct?.id === p.id ? '<div class="selected-check">✓</div>' : ''}
+            <div class="product-name">${escHtml(p.name)}</div>
+            <div class="product-price">$${parseFloat(p.price || 0).toFixed(2)}</div>
+            <div class="product-stock">stock: ${p.stock_quantity ?? 'N/A'} · id: ${p.id}</div>
+          </div>
+        `).join('')}
+      </div>
+    `}
+
+    ${state.selectedProduct ? `
+      <div class="section-title" style="margin-top:20px">Place Order</div>
+      <div style="max-width:400px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px">
+        <div style="margin-bottom:12px;font-size:12px;color:var(--text2)">
+          Selected: <strong style="color:var(--text)">${escHtml(state.selectedProduct.name)}</strong> — $${parseFloat(state.selectedProduct.price || 0).toFixed(2)}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Customer Email</label>
+          <input class="form-input" id="orderEmail" type="email" placeholder="customer@example.com" value="test@example.com" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Quantity</label>
+          <input class="form-input" id="orderQty" type="number" min="1" max="10" value="1" style="width:100px" />
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button class="btn btn-primary" onclick="submitOrder()">Place Order</button>
+          <button class="btn" onclick="state.selectedProduct=null;renderShop()">Cancel</button>
+        </div>
+      </div>
+    ` : ''}
+  `;
+}
+
+function selectProduct(id) {
+  state.selectedProduct = state.products.find(p => p.id === id) || null;
+  renderShop();
+}
+
+async function submitOrder() {
+  const email = document.getElementById('orderEmail')?.value.trim();
+  const qty = parseInt(document.getElementById('orderQty')?.value || '1');
+  if (!state.selectedProduct || !email) return;
+  const btn = document.querySelector('.btn-primary');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Processing...'; }
+  await placeOrder(email, state.selectedProduct.id, qty);
+  state.selectedProduct = null;
+  renderShop();
+}
+
+// ============================================================
+// RENDER: TRACES
+// ============================================================
+function renderTraces() {
+  const c = document.getElementById('mainContent');
+  if (!c) return;
+
+  // Group spans by traceId
+  const grouped = {};
+  for (const span of state.traces) {
+    if (!grouped[span.traceId]) grouped[span.traceId] = [];
+    grouped[span.traceId].push(span);
+  }
+  const traceIds = Object.keys(grouped).slice(0, 50);
+
+  c.innerHTML = `
+    <div class="panel-grid">
+      <div class="metric-card"><div class="metric-label">Total Traces</div><div class="metric-value">${traceIds.length}</div></div>
+      <div class="metric-card"><div class="metric-label">Total Spans</div><div class="metric-value">${state.traces.length}</div></div>
+      <div class="metric-card"><div class="metric-label">Errors</div><div class="metric-value" style="color:var(--red)">${state.traces.filter(s=>s.status?.code===2).length}</div></div>
+      <div class="metric-card"><div class="metric-label">Slow (>1s)</div><div class="metric-value" style="color:var(--amber)">${state.traces.filter(s=>s.durationMs>1000).length}</div></div>
+    </div>
+
+    <div class="section-title">Trace Explorer</div>
+
+    ${traceIds.length === 0 ? `
+      <div class="empty-state"><div class="es-icon">🔗</div><p>No traces yet.<br>Use the Storefront to place orders,<br>or run a simulation from the Simulate tab.</p></div>
+    ` : traceIds.map(tid => {
+      const spans = grouped[tid];
+      const root = spans.find(s => !s.parentSpanId) || spans[0];
+      const hasError = spans.some(s => s.status?.code === 2);
+      const maxDur = Math.max(...spans.map(s => s.durationMs || 0));
+      const time = root.receivedAt ? root.receivedAt.toTimeString().split(' ')[0] : '—';
+      return `
+        <div class="trace-item" id="trace-${tid}">
+          <div class="trace-header" onclick="toggleTrace('${tid}')">
+            <div class="trace-expand" id="expand-${tid}">▶</div>
+            <div>
+              <div class="trace-id">${tid.slice(0,24)}...</div>
+              <div style="font-size:10px;color:var(--text3)">${time} · ${spans.length} span${spans.length!==1?'s':''}</div>
+            </div>
+            <div class="trace-name">${escHtml(root?.name || 'trace')}</div>
+            <div>${hasError ? '<span class="badge badge-red">error</span>' : '<span class="badge badge-green">ok</span>'}</div>
+            <div class="trace-duration">${maxDur}ms</div>
+          </div>
+          <div class="span-tree" id="spans-${tid}" style="display:none">
+            ${spans.map(s => renderSpanRow(s)).join('')}
+            <div style="margin-top:10px;font-size:10px;color:var(--text3)">
+              Trace ID: <span style="color:var(--accent)">${tid}</span> · 
+              Push to gateway: <span style="color:var(--green)">${CONFIG.otelEndpoint}/v1/traces</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+function renderSpanRow(span) {
+  const dur = span.durationMs || 0;
+  const dotCls = span.status?.code === 2 ? 'err' : dur > 2000 ? 'slow' : 'ok';
+  const attrs = Object.entries(span.attributes || {}).slice(0,6).map(([k,v]) => `${k}=${v}`).join(' · ');
+  const logs = state.logs.filter(l => l.traceId === span.traceId && l.spanId === span.spanId).slice(0,3);
+  return `
+    <div class="span-row">
+      <div class="span-dot ${dotCls}"></div>
+      <div class="span-info">
+        <div class="span-name">${escHtml(span.name)}</div>
+        <div class="span-meta">${escHtml(span.spanId)} ${attrs ? '· ' + escHtml(attrs) : ''}</div>
+        ${logs.map(l => `<div class="span-log">[${l.level}] ${escHtml(l.message)}</div>`).join('')}
+      </div>
+      <div class="span-dur">${dur}ms</div>
+    </div>
+  `;
+}
+
+function toggleTrace(tid) {
+  const body = document.getElementById(`spans-${tid}`);
+  const icon = document.getElementById(`expand-${tid}`);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (icon) icon.classList.toggle('open', !open);
+}
+
+// ============================================================
+// RENDER: LOGS
+// ============================================================
+function renderLogs() {
+  const c = document.getElementById('mainContent');
+  if (!c) return;
+  c.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div class="section-title" style="flex:1;margin-bottom:0">Live Log Stream</div>
+      <button class="btn" onclick="state.logs=[];renderLogs()">Clear</button>
+    </div>
+    <div class="log-console">
+      ${state.logs.length === 0 ? '<span style="color:var(--text3)">// No logs yet...</span>' :
+        state.logs.map(l => `
+          <div class="log-line">
+            <span class="log-time">${l.time}</span>
+            <span class="log-level ${l.level}">${l.level}</span>
+            <span class="log-msg">${escHtml(l.message)}</span>
+            ${l.traceId ? `<span class="log-trace"> tid:${l.traceId.slice(0,12)}</span>` : ''}
+          </div>
+        `).join('')
+      }
+    </div>
+  `;
+}
+
+// ============================================================
+// RENDER: SIMULATE
+// ============================================================
+function renderSimulate() {
+  const c = document.getElementById('mainContent');
+  if (!c) return;
+  c.innerHTML = `
+    <div class="section-title">Simulation Scenarios</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:700px">
+      
+      <div class="metric-card" style="padding:20px">
+        <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px">💥 Error Scenario</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:14px">Triggers /simulate/error on your backend. Generates an error span + log that flows to the OTel gateway with error status code.</div>
+        <button class="btn btn-danger" onclick="simulateError();showToast('error','Error scenario triggered')">Trigger Error</button>
+      </div>
+
+      <div class="metric-card" style="padding:20px">
+        <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px">🐌 Slow Request</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:14px">Hits /simulate/slow with configurable delay. Generates a slow span visible in traces as a latency outlier.</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <label style="font-size:11px;color:var(--text3)">Delay:</label>
+          <input class="form-input" id="slowMs" type="number" value="3000" min="500" max="10000" step="500" style="width:80px" />
+          <span style="font-size:11px;color:var(--text3)">ms</span>
+        </div>
+        <button class="btn" onclick="simulateSlow(parseInt(document.getElementById('slowMs').value||3000))">Trigger Slow</button>
+      </div>
+
+      <div class="metric-card" style="padding:20px">
+        <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px">🚶 Full User Journey</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:14px">Simulates a complete user session: browse → health check → place order. All spans share one trace ID for end-to-end visibility.</div>
+        <button class="btn btn-primary" onclick="simulateUserJourney()">Run Journey</button>
+      </div>
+
+      <div class="metric-card" style="padding:20px">
+        <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px">🔁 Load Test</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:14px">Fires multiple product listing requests in parallel. Useful for generating throughput metrics and checking for race conditions.</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <label style="font-size:11px;color:var(--text3)">Requests:</label>
+          <input class="form-input" id="loadN" type="number" value="5" min="1" max="20" style="width:60px" />
+        </div>
+        <button class="btn" onclick="runLoadTest(parseInt(document.getElementById('loadN').value||5))">Run Load Test</button>
+      </div>
+    </div>
+
+    <div class="section-title" style="margin-top:24px">OTel Gateway Status</div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Signal</th><th>Endpoint</th><th>Status</th><th>Last Push</th></tr></thead>
+        <tbody>
+          <tr><td>Traces</td><td style="font-size:10px;color:var(--accent)">${CONFIG.otelEndpoint}/v1/traces</td><td><span class="badge badge-green">active</span></td><td style="color:var(--text3)">${new Date().toTimeString().split(' ')[0]}</td></tr>
+          <tr><td>Logs</td><td style="font-size:10px;color:var(--accent)">${CONFIG.otelEndpoint}/v1/logs</td><td><span class="badge badge-green">active</span></td><td style="color:var(--text3)">${new Date().toTimeString().split(' ')[0]}</td></tr>
+          <tr><td>Metrics</td><td style="font-size:10px;color:var(--text3)">${CONFIG.otelEndpoint}/v1/metrics</td><td><span class="badge badge-amber">not yet</span></td><td style="color:var(--text3)">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function runLoadTest(n) {
+  const rootSpan = tracer.startSpan(`load.test.${n}_requests`);
+  rootSpan.attributes = { 'load.test.n': n, 'simulation.type': 'load_test' };
+  addLog('INFO', `Starting load test: ${n} parallel requests`, rootSpan.traceId, rootSpan.spanId);
+  await Promise.all(Array.from({length: n}, () => apiCall('GET', '/products', null, rootSpan)));
+  tracer.endSpan(rootSpan, 'ok', { 'load.requests_sent': n });
+  showToast('success', `Load test done: ${n} requests sent`);
+}
+
+// ============================================================
+// RENDER: CONFIG
+// ============================================================
+function renderConfig() {
+  const c = document.getElementById('mainContent');
+  if (!c) return;
+  c.innerHTML = `
+    <div class="section-title">Connection Settings</div>
+    <div style="max-width:500px">
+      <div class="config-banner">
+        <div class="config-banner-icon">⚠</div>
+        <div>
+          <div style="font-size:12px;color:var(--amber);font-weight:600;margin-bottom:4px">CORS Notice</div>
+          <div style="font-size:11px;color:var(--text2)">The OTel gateway and backend need CORS headers to accept requests from this browser app. If traces don't appear in your gateway, ensure <code style="color:var(--accent)">Access-Control-Allow-Origin: *</code> is set on both services.</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Backend URL (your EC2 Node.js app)</label>
+        <input class="form-input" id="backendUrlInput" value="${escHtml(state.backendUrl)}" placeholder="http://your-ec2-ip:3000" />
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">e.g. http://ec2-x-x-x-x.compute-1.amazonaws.com:3000</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">OTel Gateway Endpoint (read-only)</label>
+        <input class="form-input" value="${escHtml(CONFIG.otelEndpoint)}" readonly style="color:var(--text3)" />
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">Traces → /v1/traces · Logs → /v1/logs</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Service Name</label>
+        <input class="form-input" id="serviceNameInput" value="${escHtml(CONFIG.serviceName)}" />
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" onclick="saveConfig()">Save & Reconnect</button>
+        <button class="btn" onclick="checkHealth().then(ok => showToast(ok?'success':'error', ok?'Backend reachable':'Backend not reachable'))">Test Backend</button>
+        <button class="btn" onclick="tracer.flush().then(()=>showToast('success','Spans flushed'))">Flush Spans Now</button>
+      </div>
+    </div>
+
+    <div class="section-title" style="margin-top:24px">Instrumentation Details</div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>SDK</td><td>shoptrace-frontend-otel (browser native)</td></tr>
+          <tr><td>Protocol</td><td>OTLP/HTTP JSON</td></tr>
+          <tr><td>service.name</td><td style="color:var(--accent)">${CONFIG.serviceName}</td></tr>
+          <tr><td>Trace propagation</td><td>W3C traceparent header</td></tr>
+          <tr><td>Flush interval</td><td>5 seconds</td></tr>
+          <tr><td>Context propagation</td><td>parent → child span linking</td></tr>
+          <tr><td>Signals sent</td><td>Traces, Logs</td></tr>
+          <tr><td>Buffer size</td><td>10 spans (auto-flush)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function saveConfig() {
+  state.backendUrl = document.getElementById('backendUrlInput')?.value.trim() || state.backendUrl;
+  CONFIG.serviceName = document.getElementById('serviceNameInput')?.value.trim() || CONFIG.serviceName;
+  localStorage.setItem('backendUrl', state.backendUrl);
+  showToast('success', 'Config saved. Reconnecting...');
+  tracer.testConnection();
+  checkHealth();
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+async function boot() {
+  addLog('INFO', 'ShopTrace frontend initialized');
+  addLog('INFO', `OTel gateway: ${CONFIG.otelEndpoint}`);
+  addLog('INFO', `Backend URL: ${state.backendUrl}`);
+  render();
+  // Try to connect + load products
+  await checkHealth();
+  if (state.backendUrl !== 'http://localhost:3000') {
+    await loadProducts();
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
