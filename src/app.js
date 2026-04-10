@@ -9,6 +9,11 @@ const app = express()
 const PORT = process.env.PORT || 3000
 
 app.use(express.json())
+const cors = require('cors');
+// ...
+app.use(express.json());
+app.use(cors({ origin: '*', exposedHeaders: ['traceparent'] })); // ← add here
+
 
 // ── OTel Logger ───────────────────────────────────────────────
 //  Uses the LoggerProvider registered in tracing.js.

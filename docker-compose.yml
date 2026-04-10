@@ -61,7 +61,7 @@ services:
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
     ports:
-      - "53218:4318"
-      - "53217:4317"
+      - "4318:4318"
+      - "4317:4317"
     networks:
       - shoptrace-net

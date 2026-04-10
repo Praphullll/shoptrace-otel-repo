@@ -8,9 +8,6 @@ diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
 const { NodeSDK } = require('@opentelemetry/sdk-node');
 const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
 
-const cors = require('cors');
-app.use(cors({ origin: '*', exposedHeaders: ['traceparent'] }));
-
 const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
 const { OTLPMetricExporter } = require('@opentelemetry/exporter-metrics-otlp-http');
 const { OTLPLogExporter } = require('@opentelemetry/exporter-logs-otlp-http');
