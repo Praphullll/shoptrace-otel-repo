@@ -1,3 +1,7 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
 receivers:
   otlp:
     protocols:
@@ -19,6 +23,7 @@ exporters:
     endpoint: http://otel-gateway-nlb-3b88104205cc8ef6.elb.us-east-1.amazonaws.com:4318
 
 service:
+  extensions: [health_check]
   pipelines:
     traces:
       receivers: [otlp]
