@@ -65,3 +65,17 @@ services:
       - "4317:4317"
     networks:
       - shoptrace-net
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://app:3000
+    container_name: shoptrace-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - app
+    networks:
+      - shoptrace-net
+    restart: unless-stopped

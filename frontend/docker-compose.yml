@@ -1,0 +1,17 @@
+networks:
+  shoptrace-net:
+    external: true   # reuse the root-level network
+
+services:
+
+  frontend:
+    build:
+      context: .
+      args:
+        BACKEND_URL: ${BACKEND_URL:-http://app:3000}
+    container_name: shoptrace-frontend
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    networks:
+      - shoptrace-net
