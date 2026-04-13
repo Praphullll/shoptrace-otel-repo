@@ -41,8 +41,8 @@ async function apiFetch(path, opts = {}, retries = 2) {
       return data;
     } catch (err) {
       if (attempt === retries) throw err;
-      // Exponential back-off (0.5s, 1s)
-      await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+      // Exponential back-off: 500ms, 1000ms, 2000ms …
+      await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
     }
   }
 }

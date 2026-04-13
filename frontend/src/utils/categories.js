@@ -7,7 +7,7 @@ export const CATEGORIES = ['All', 'Phones', 'Laptops', 'Tablets', 'Accessories',
 export const CATEGORY_ICONS = {
   Phones:      '📱',
   Laptops:     '💻',
-  Tablets:     '🖥️',
+  Tablets:     '📲',
   Accessories: '⌨️',
   Audio:       '🎧',
   Displays:    '🖥️',
@@ -18,7 +18,8 @@ export const CATEGORY_ICONS = {
 const KEYWORD_MAP = {
   Phones:      ['phone', 'mobile', 'smartphone', 'iphone', 'samsung', 'pixel'],
   Laptops:     ['laptop', 'notebook', 'macbook', 'thinkpad', 'chromebook'],
-  Tablets:     ['tablet', 'ipad', 'surface', 'display', 'monitor', 'screen'],
+  Tablets:     ['tablet', 'ipad', 'surface'],
+  Displays:    ['display', 'monitor', 'screen'],
   Audio:       ['headphone', 'earphone', 'speaker', 'airpod', 'earbud', 'audio', 'mic', 'microphone', 'webcam'],
   Storage:     ['drive', 'ssd', 'hdd', 'usb', 'card', 'storage', 'hub'],
   Accessories: ['keyboard', 'mouse', 'mousepad', 'cable', 'charger', 'adapter', 'lamp', 'desk', 'stand', 'bracket'],

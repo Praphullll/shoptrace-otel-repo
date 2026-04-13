@@ -6,7 +6,15 @@ import { checkHealth } from '../services/api.js';
 import { getLocalOrders } from '../services/storage.js';
 
 export class Monitor {
+  constructor() {
+    this._timer     = null;
+    this._container = null;
+  }
+
   async render(container) {
+    // Prevent duplicate intervals if render is called again
+    this.destroy();
+
     container.innerHTML = `
       <div class="page-wrapper">
         <h2 class="mb-24">📡 Service Monitor</h2>

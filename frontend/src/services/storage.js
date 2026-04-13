@@ -41,6 +41,8 @@ export function saveCart(cart) {
 
 /**
  * Add a product to the cart, or increment its quantity.
+ * Note: stock is validated client-side using the cached product data.
+ * The server performs authoritative stock validation at order placement.
  * @param {object} product – product row from backend
  * @param {number} quantity
  */

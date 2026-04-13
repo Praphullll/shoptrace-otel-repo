@@ -109,7 +109,8 @@ export class Checkout {
 
       // Validate
       const email = emailEl.value.trim();
-      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      // RFC 5321-compliant email pattern
+      if (!email || !/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(email)) {
         emailEl.classList.add('error');
         container.querySelector('#email-error').textContent = 'Please enter a valid email address.';
         emailEl.focus();
