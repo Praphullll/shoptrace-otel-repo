@@ -1,36 +1,32 @@
-receivers:
+﻿receivers:
   otlp:
     protocols:
-      http:
-        endpoint: 0.0.0.0:4318
-        cors:
-          allowed_origins: ["*"]
-          allowed_headers: ["*"]
       grpc:
         endpoint: 0.0.0.0:4317
-
+      http:
+        endpoint: 0.0.0.0:4318
 processors:
   batch:
-
+    send_batch_size: 1000
+    timeout: 10s
 exporters:
-  debug:
-
-  otlp_http/nlb:
-    endpoint: http://otel-gateway-nlb-3b88104205cc8ef6.elb.us-east-1.amazonaws.com:4318
-
+  otlp/signoz:
+    endpoint: "ingest.in2.signoz.cloud:443"
+    tls:
+      insecure: false
+    headers:
+      "signoz-access-token": "be11ef40-0169-483a-8919-f305a09013aa"
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug, otlp_http/nlb]
-
-    logs:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [debug, otlp_http/nlb]
-
+      exporters: [otlp/signoz]
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug, otlp_http/nlb]
+      exporters: [otlp/signoz]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/signoz]
