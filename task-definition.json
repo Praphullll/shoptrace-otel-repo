@@ -1,0 +1,96 @@
+{
+  "family": "shoptrace-task",
+  "networkMode": "bridge",
+  "requiresCompatibilities": ["EC2"],
+  "containerDefinitions": [
+    {
+      "name": "postgres",
+      "image": "postgres:15-alpine",
+      "memory": 512,
+      "essential": true,
+      "portMappings": [],
+      "environment": [
+        { "name": "POSTGRES_DB", "value": "shoptrace" },
+        { "name": "POSTGRES_USER", "value": "shoptrace" },
+        { "name": "POSTGRES_PASSWORD", "value": "shoptrace123" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "pg_isready -U shoptrace"],
+        "interval": 5,
+        "timeout": 5,
+        "retries": 5
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/shoptrace",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "postgres"
+        }
+      }
+    },
+    {
+      "name": "otel-collector",
+      "image": "otel/opentelemetry-collector-contrib:latest",
+      "memory": 256,
+      "essential": true,
+      "command": ["--config=/etc/otel-collector-config.yaml"],
+      "portMappings": [
+        { "containerPort": 4317, "hostPort": 4317, "protocol": "tcp" },
+        { "containerPort": 4318, "hostPort": 4318, "protocol": "tcp" }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "otel-config",
+          "containerPath": "/etc/otel-collector-config.yaml",
+          "readOnly": true
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/shoptrace",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "otel-collector"
+        }
+      }
+    },
+    {
+      "name": "shoptrace-app",
+      "image": "584554046133.dkr.ecr.us-east-1.amazonaws.com/shoptrace-otel:latest",
+      "memory": 512,
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 8080, "hostPort": 8080, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "DATABASE_URL", "value": "postgres://shoptrace:shoptrace123@localhost:5432/shoptrace" },
+        { "name": "OTEL_EXPORTER_OTLP_ENDPOINT", "value": "http://localhost:4318" },
+        { "name": "OTEL_EXPORTER_OTLP_PROTOCOL", "value": "http/protobuf" },
+        { "name": "OTEL_SERVICE_NAME", "value": "shoptrace-simple" },
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "PORT", "value": "8080" }
+      ],
+      "dependsOn": [
+        { "containerName": "postgres", "condition": "HEALTHY" },
+        { "containerName": "otel-collector", "condition": "START" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/shoptrace",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "app"
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "otel-config",
+      "host": {
+        "sourcePath": "/home/ec2-user/otel-collector-config.yaml"
+      }
+    }
+  ]
+}

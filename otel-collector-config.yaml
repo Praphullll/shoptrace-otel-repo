@@ -5,28 +5,29 @@
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+
 processors:
   batch:
     send_batch_size: 1000
     timeout: 10s
+
 exporters:
-  otlp/signoz:
-    endpoint: "ingest.in2.signoz.cloud:443"
+  otlp/gateway:
+    endpoint: "otel-gateway-nlb-3b88104205cc8ef6.elb.us-east-1.amazonaws.com:4317"
     tls:
-      insecure: false
-    headers:
-      "signoz-access-token": "be11ef40-0169-483a-8919-f305a09013aa"
+      insecure: true
+
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp/signoz]
+      exporters: [otlp/gateway]
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp/signoz]
+      exporters: [otlp/gateway]
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp/signoz]
+      exporters: [otlp/gateway]

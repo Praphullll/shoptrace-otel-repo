@@ -236,7 +236,7 @@ app.get('/simulate/slow', async (req, res) => {
 });
 
 // ── Start server ──────────────────────────────────────────────────────────────
-const PORT = parseInt(process.env.PORT) || 3000;
+const PORT = parseInt(process.env.PORT) || 8080;
 app.listen(PORT, () => {
   console.log(`[app] ShopTrace listening on http://localhost:${PORT}`);
 });
