@@ -189,13 +189,13 @@ function shortId(id) { return id ? `${id.slice(0, 8)}…${id.slice(-4)}` : '—'
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [health,   setHealth]   = useState('idle');   // 'idle' | 'ok' | 'error'
+  const [health, setHealth] = useState('idle');   // 'idle' | 'ok' | 'error'
   const [products, setProducts] = useState([]);
-  const [form, setForm]         = useState({ customer_email: '', product_id: '', quantity: 1 });
+  const [form, setForm] = useState({ customer_email: '', product_id: '', quantity: 1 });
   const [submitting, setSubmitting] = useState(false);
-  const [feedback,  setFeedback]    = useState(null);   // { type, message, detail }
-  const [events,    setEvents]      = useState([]);
-  const [copied,    setCopied]      = useState(null);
+  const [feedback, setFeedback] = useState(null);   // { type, message, detail }
+  const [events, setEvents] = useState([]);
+  const [copied, setCopied] = useState(null);
 
   const feedbackTimer = useRef(null);
 
@@ -235,10 +235,10 @@ export default function App() {
     clearTimeout(feedbackTimer.current);
 
     try {
-      const r    = await fetch(`${API}/orders`, {
-        method:  'POST',
+      const r = await fetch(`${API}/orders`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ ...form, quantity: Number(form.quantity) }),
+        body: JSON.stringify({ ...form, quantity: Number(form.quantity) }),
       });
       const data = await r.json();
 
@@ -247,18 +247,18 @@ export default function App() {
         addEvent({ kind: 'error', op: 'create-order', detail: data.error || 'HTTP ' + r.status });
       } else {
         setFeedback({
-          type:    'ok',
+          type: 'ok',
           message: `✓ Order confirmed — ${data.product} × ${data.quantity}`,
-          detail:  `Total ₹${data.total_price}  ·  Order ${shortId(data.order_id)}`,
+          detail: `Total ₹${data.total_price}  ·  Order ${shortId(data.order_id)}`,
         });
         addEvent({
-          kind:     'order',
-          op:       'create-order',
-          traceId:  data.trace_id,
-          orderId:  data.order_id,
-          product:  data.product,
-          qty:      data.quantity,
-          total:    data.total_amount,
+          kind: 'order',
+          op: 'create-order',
+          traceId: data.trace_id,
+          orderId: data.order_id,
+          product: data.product,
+          qty: data.quantity,
+          total: data.total_amount,
         });
       }
     } catch (err) {
@@ -274,13 +274,13 @@ export default function App() {
   async function simulate(type) {
     const url = type === 'error' ? `${API}/simulate/error` : `${API}/simulate/slow?ms=2500`;
     try {
-      const r    = await fetch(url);
+      const r = await fetch(url);
       const data = await r.json();
       addEvent({
-        kind:    type === 'error' ? 'error' : 'slow',
-        op:      type === 'error' ? 'simulate-error' : 'simulate-slow',
+        kind: type === 'error' ? 'error' : 'slow',
+        op: type === 'error' ? 'simulate-error' : 'simulate-slow',
         traceId: data.trace_id,
-        detail:  data.error || data.message,
+        detail: data.error || data.message,
       });
     } catch (err) {
       addEvent({ kind: 'error', op: `simulate-${type}`, detail: err.message });
@@ -292,7 +292,7 @@ export default function App() {
   }
 
   async function copyTrace(id) {
-    await navigator.clipboard.writeText(id).catch(() => {});
+    await navigator.clipboard.writeText(id).catch(() => { });
     setCopied(id);
     setTimeout(() => setCopied(null), 1500);
   }
@@ -307,11 +307,11 @@ export default function App() {
         <header className="header">
           <div className="logo">
             <svg className="logo-icon" viewBox="0 0 32 32" fill="none">
-              <rect width="32" height="32" rx="8" fill="#00e5a0" fillOpacity=".12"/>
-              <path d="M8 24 L16 8 L24 24" stroke="#00e5a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="16" cy="8" r="2.5" fill="#00e5a0"/>
-              <circle cx="8"  cy="24" r="2.5" fill="#00e5a0" fillOpacity=".6"/>
-              <circle cx="24" cy="24" r="2.5" fill="#00e5a0" fillOpacity=".6"/>
+              <rect width="32" height="32" rx="8" fill="#00e5a0" fillOpacity=".12" />
+              <path d="M8 24 L16 8 L24 24" stroke="#00e5a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="16" cy="8" r="2.5" fill="#00e5a0" />
+              <circle cx="8" cy="24" r="2.5" fill="#00e5a0" fillOpacity=".6" />
+              <circle cx="24" cy="24" r="2.5" fill="#00e5a0" fillOpacity=".6" />
             </svg>
             <div>
               <div className="logo-text">ShopTrace</div>
@@ -349,10 +349,10 @@ export default function App() {
                   {products.length === 0
                     ? <option value="">Loading products…</option>
                     : products.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} — ₹{parseFloat(p.price).toFixed(2)}
-                        </option>
-                      ))
+                      <option key={p.id} value={p.id}>
+                        {p.name} — ₹{parseFloat(p.price).toFixed(2)}
+                      </option>
+                    ))
                   }
                 </select>
               </div>
@@ -440,8 +440,8 @@ function TraceCard({ ev, copied, onCopy }) {
   const kindTag = ev.kind === 'order'
     ? <span className="tag tag-accent">✓ order</span>
     : ev.kind === 'slow'
-    ? <span className="tag tag-warn">⏱ slow</span>
-    : <span className="tag tag-error">✕ error</span>;
+      ? <span className="tag tag-warn">⏱ slow</span>
+      : <span className="tag tag-error">✕ error</span>;
 
   return (
     <div className="trace-card">
@@ -453,9 +453,9 @@ function TraceCard({ ev, copied, onCopy }) {
       <div className="trace-meta">
         {kindTag}
         {ev.product && <span className="tag tag-blue">{ev.product}</span>}
-        {ev.qty     && <span className="tag">qty {ev.qty}</span>}
-        {ev.total   && <span className="tag">₹{ev.total}</span>}
-        {ev.detail  && <span className="tag" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.detail}</span>}
+        {ev.qty && <span className="tag">qty {ev.qty}</span>}
+        {ev.total && <span className="tag">₹{ev.total}</span>}
+        {ev.detail && <span className="tag" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.detail}</span>}
       </div>
 
       {ev.traceId && (

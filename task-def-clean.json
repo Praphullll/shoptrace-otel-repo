@@ -1,0 +1,164 @@
+{
+    "family":  "shoptrace-task",
+    "containerDefinitions":  [
+                                 {
+                                     "name":  "postgres",
+                                     "image":  "postgres:15-alpine",
+                                     "cpu":  256,
+                                     "memory":  512,
+                                     "portMappings":  [
+
+                                                      ],
+                                     "essential":  true,
+                                     "environment":  [
+                                                         {
+                                                             "name":  "POSTGRES_USER",
+                                                             "value":  "shoptrace"
+                                                         },
+                                                         {
+                                                             "name":  "POSTGRES_PASSWORD",
+                                                             "value":  "shoptrace123"
+                                                         },
+                                                         {
+                                                             "name":  "POSTGRES_DB",
+                                                             "value":  "shoptrace"
+                                                         }
+                                                     ],
+                                     "mountPoints":  [
+
+                                                     ],
+                                     "volumesFrom":  [
+
+                                                     ],
+                                     "logConfiguration":  {
+                                                              "logDriver":  "awslogs",
+                                                              "options":  {
+                                                                              "awslogs-group":  "/ecs/shoptrace",
+                                                                              "awslogs-region":  "us-east-1",
+                                                                              "awslogs-stream-prefix":  "postgres"
+                                                                          }
+                                                          },
+                                     "healthCheck":  {
+                                                         "command":  [
+                                                                         "CMD-SHELL",
+                                                                         "pg_isready -U shoptrace"
+                                                                     ],
+                                                         "interval":  5,
+                                                         "timeout":  5,
+                                                         "retries":  5
+                                                     },
+                                     "systemControls":  [
+
+                                                        ]
+                                 },
+                                 {
+                                     "name":  "otel-collector",
+                                     "image":  "otel/opentelemetry-collector-contrib:latest",
+                                     "cpu":  256,
+                                     "memory":  256,
+                                     "portMappings":  [
+
+                                                      ],
+                                     "essential":  true,
+                                     "command":  [
+                                                     "--config=env:OTEL_CONFIG"
+                                                 ],
+                                     "environment":  [
+                                                         {
+                                                             "name":  "OTEL_CONFIG",
+                                                             "value":  "receivers:\n  otlp:\n    protocols:\n      grpc:\n        endpoint: 0.0.0.0:4317\n      http:\n        endpoint: 0.0.0.0:4318\nprocessors:\n  batch:\n    send_batch_size: 1\n    timeout: 1s\nexporters:\n  otlp/gateway:\n    endpoint: otel-backend-nlb-56216bb3ab8b8c79.elb.us-east-1.amazonaws.com:4317\n    tls:\n      insecure: true\nservice:\n  pipelines:\n    traces:\n      receivers: [otlp]\n      processors: [batch]\n      exporters: [otlp/gateway]\n    metrics:\n      receivers: [otlp]\n      processors: [batch]\n      exporters: [otlp/gateway]\n    logs:\n      receivers: [otlp]\n      processors: [batch]\n      exporters: [otlp/gateway]\n"
+                                                         }
+                                                     ],
+                                     "mountPoints":  [
+
+                                                     ],
+                                     "volumesFrom":  [
+
+                                                     ],
+                                     "logConfiguration":  {
+                                                              "logDriver":  "awslogs",
+                                                              "options":  {
+                                                                              "awslogs-group":  "/ecs/shoptrace",
+                                                                              "awslogs-region":  "us-east-1",
+                                                                              "awslogs-stream-prefix":  "otel-collector"
+                                                                          }
+                                                          },
+                                     "systemControls":  [
+
+                                                        ]
+                                 },
+                                 {
+                                     "name":  "shoptrace-app",
+                                     "image":  "584554046133.dkr.ecr.us-east-1.amazonaws.com/shoptrace-otel:latest",
+                                     "cpu":  512,
+                                     "memory":  512,
+                                     "portMappings":  [
+
+                                                      ],
+                                     "essential":  true,
+                                     "environment":  [
+                                                         {
+                                                             "name":  "OTEL_SERVICE_NAME",
+                                                             "value":  "shoptrace-simple"
+                                                         },
+                                                         {
+                                                             "name":  "OTEL_EXPORTER_OTLP_PROTOCOL",
+                                                             "value":  "http/protobuf"
+                                                         },
+                                                         {
+                                                             "name":  "NODE_ENV",
+                                                             "value":  "production"
+                                                         },
+                                                         {
+                                                             "name":  "DATABASE_URL",
+                                                             "value":  "postgres://shoptrace:shoptrace123@localhost:5432/shoptrace"
+                                                         },
+                                                         {
+                                                             "name":  "PORT",
+                                                             "value":  "8080"
+                                                         },
+                                                         {
+                                                             "name":  "OTEL_EXPORTER_OTLP_ENDPOINT",
+                                                             "value":  "http://localhost:4318"
+                                                         }
+                                                     ],
+                                     "mountPoints":  [
+
+                                                     ],
+                                     "volumesFrom":  [
+
+                                                     ],
+                                     "dependsOn":  [
+                                                       {
+                                                           "containerName":  "postgres",
+                                                           "condition":  "HEALTHY"
+                                                       },
+                                                       {
+                                                           "containerName":  "otel-collector",
+                                                           "condition":  "START"
+                                                       }
+                                                   ],
+                                     "logConfiguration":  {
+                                                              "logDriver":  "awslogs",
+                                                              "options":  {
+                                                                              "awslogs-group":  "/ecs/shoptrace",
+                                                                              "awslogs-region":  "us-east-1",
+                                                                              "awslogs-stream-prefix":  "app"
+                                                                          }
+                                                          },
+                                     "systemControls":  [
+
+                                                        ]
+                                 }
+                             ],
+    "volumes":  [
+
+                ],
+    "networkMode":  "host",
+    "requiresCompatibilities":  [
+                                    "EC2"
+                                ],
+    "placementConstraints":  [
+
+                             ]
+}

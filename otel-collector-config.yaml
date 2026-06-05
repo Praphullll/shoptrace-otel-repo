@@ -8,12 +8,12 @@
 
 processors:
   batch:
-    send_batch_size: 1000
-    timeout: 10s
+    send_batch_size: 1
+    timeout: 1s
 
 exporters:
   otlp/gateway:
-    endpoint: "otel-gateway-nlb-3b88104205cc8ef6.elb.us-east-1.amazonaws.com:4317"
+    endpoint: "otel-backend-nlb-56216bb3ab8b8c79.elb.us-east-1.amazonaws.com:4317"
     tls:
       insecure: true
 
